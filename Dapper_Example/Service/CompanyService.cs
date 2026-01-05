@@ -7,35 +7,84 @@ namespace DapperExample.Service
     public class CompanyService : ICompanyService
     {
         private readonly ICompanyRepository _repository;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public CompanyService(ICompanyRepository repository)
+        public CompanyService(ICompanyRepository repository, IUnitOfWork unitOfWork)
         {
-            _repository=repository;
+            _repository = repository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<List<Company>> GetCompanies()
         {
-            return await _repository.GetCompanies();
+            try
+            {
+                return await _repository.GetCompanies();
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
         public async Task<Company> GetCompanyById(int id)
         {
-            return await _repository.GetCompanyById(id).ConfigureAwait(false);
+            try
+            {
+                return await _repository.GetCompanyById(id).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
         public async Task<Company> GetCompanyByIdWithParameters(int id, string name)
         {
-            return await _repository.GetCompanyByIdWithParameters(id, name).ConfigureAwait(false);
+            try
+            {
+                return await _repository.GetCompanyByIdWithParameters(id, name).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
         }
 
         public async Task<int> CreateCompany(Company company)
         {
-            return await _repository.CreateCompany(company).ConfigureAwait(false);
+            try
+            {
+                _unitOfWork.BeginTransaction();
+
+                var result = await _repository.CreateCompany(company).ConfigureAwait(false);
+
+                //throw new Exception("Erro triste erro");
+
+                _unitOfWork.Commit();
+
+                return result;
+            }
+            catch (Exception)
+            {
+                _unitOfWork.Rollback();
+                throw;
+            }
         }
 
         public async Task UpdateComapny(Company company)
         {
-            await _repository.UpdateCompany(company).ConfigureAwait(false);
+            try
+            {
+                await _repository.UpdateCompany(company).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
     }
 }

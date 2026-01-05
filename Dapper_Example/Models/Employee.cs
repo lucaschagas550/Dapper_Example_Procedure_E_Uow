@@ -1,8 +1,7 @@
 ﻿namespace DapperExample.Models
 {
-    public class Employee
+    public class Employee : Entity
     {
-        public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public int Age { get; set; }
         public string Position { get; set; } = string.Empty;

@@ -1,124 +1,79 @@
 ﻿using Dapper;
 using DapperExample.Models;
 using DapperExample.Repository.Interfaces;
+using System.Data;
 
 namespace DapperExample.Repository.Repositories
 {
     public class CompanyRepository : ICompanyRepository
     {
-        private readonly AppDbContext _context;
+        private readonly DbContext _context;
 
-        public CompanyRepository(AppDbContext context)
+        public CompanyRepository(DbContext context)
         {
             _context = context;
         }
 
         public async Task<List<Company>> GetCompanies()
         {
-            try
-            {
-                var query = "SELECT * FROM Company";
+            var companies = await _context.Connection.QueryAsync<Company>("Test.CompaniesLista_sps", commandType: CommandType.StoredProcedure);
 
-                using var connection = _context.CreateConnection();
-                var companies = await connection.QueryAsync<Company>(query).ConfigureAwait(false);
-
-                return companies.ToList();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
+            return companies.ToList();
         }
 
         public async Task<Company> GetCompanyById(int id)
         {
-            try
-            {
-                var query = "SELECT * FROM Company WHERE Id = @Id";
+            var company = await _context.Connection.QuerySingleOrDefaultAsync<Company>("Test.CompaniesObter_sps", new { Id = id }, commandType: CommandType.StoredProcedure);
 
-                using var connection = _context.CreateConnection();
-                var company = await connection.QuerySingleOrDefaultAsync<Company>(query, new { id }).ConfigureAwait(false);
-
-                return company ?? new Company();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
+            return company ?? new Company();
         }
 
         public async Task<Company> GetCompanyByIdWithParameters(int id, string name)
         {
-            try
-            {
-                var parameters = new DynamicParameters();
-                parameters.Add("Id", id);
 
-                var query = "SELECT * FROM Company WHERE Id = @Id";
+            var parameters = new { Id = id, Name = name };
 
-                if (!string.IsNullOrEmpty(name))
-                {
-                    query += " AND Name = @Name";
-                    parameters.Add("Name", name);
-                }
+            var company = await _context.Connection.QuerySingleOrDefaultAsync<Company>(
+                "Test.CompaniesObterFiltroDinamico_sps",
+                parameters,
+                transaction: _context.Transaction, //Transaction
+                commandType: CommandType.StoredProcedure);
 
-                using var connection = _context.CreateConnection();
-
-                var company = await connection.QuerySingleOrDefaultAsync<Company>(query, parameters).ConfigureAwait(false);
-
-                return company ?? new Company();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
+            return company ?? new Company();
         }
 
         public async Task<int> CreateCompany(Company company)
         {
-            try
+            var parameters = new
             {
-                var query = "INSERT INTO Company (Name, Address, Country) VALUES (@Name, @Address, @Country)" +
-                "SELECT CAST(SCOPE_IDENTITY() as int)";
+                Name = company.Name,
+                Address = company.Address,
+                Country = company.Country
+            };
 
-                using var connection = _context.CreateConnection();
-
-                var id = await connection.QuerySingleAsync<int>(query,
-                    new
-                    {
-                        Name = company.Name,
-                        Address = company.Address,
-                        Country = company.Country
-                    }).ConfigureAwait(false);
-
-                return id;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
+            return await _context.Connection.QuerySingleAsync<int>("Test.Companies_spi",
+                parameters,
+                transaction: _context.Transaction, //Transaction
+                commandType: CommandType.StoredProcedure);
         }
 
         public async Task UpdateCompany(Company company)
         {
-            try
-            {
-                var query = "UPDATE Company SET Name = @Name, Address = @Address, Country = @Country WHERE Id = @Id";
-                using var connection = _context.CreateConnection();
+            //Se a transacao for null o dapper executa automaticamente no banco de dados a consulta
 
-                await connection.ExecuteAsync(query,
-                    new
-                    {
-                        Id = company.Id,
-                        Name = company.Name,
-                        Address = company.Address,
-                        Country = company.Country
-                    });
-            }
-            catch (Exception ex)
+            var parameters = new
             {
-                throw new Exception(ex.Message);
-            }
+                Id = company.Id,
+                Name = company.Name,
+                Address = company.Address,
+                Country = company.Country
+            };
+
+            await _context.Connection.ExecuteAsync(
+                "Test.Companies_spu",
+                parameters,
+                transaction: _context.Transaction, //Transaction
+                commandType: CommandType.StoredProcedure);
         }
     }
 }
